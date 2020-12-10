@@ -6,9 +6,10 @@ Nonlinear optimal control via nonlinear programming (NLP). This library relies u
 First create an optimal control problem by subclassing from the template given in [core.py](nopt/core.py). See [inverted_pendulum.py](nopt/problems/inverted_pendulum.py) for an example.
 
 ``` python
-from nopt.problems import InvertedPendulum()
+import jax.numpy as np
+from nopt.problems import InvertedPendulum
 
-ip = InvertedPendulum
+ip = InvertedPendulum()
 ```
 
 Specifying boundary conditions and number of grid points:
