@@ -40,3 +40,5 @@ anim = problem.plot(zstar)
 ```
 
 See the [example notebook](example.ipynb).
+
+![](fig/inverted_pendulum.gif)
