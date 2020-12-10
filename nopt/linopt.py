@@ -1,4 +1,8 @@
-"""Abstract linear algebra library.
+"""
+Modified version of scipy.sparse.linalg.interface to allow for jax usage
+-------------------------------------------------------------------------
+
+Abstract linear algebra library.
 
 This module defines a class hierarchy that implements a kind of "lazy"
 matrix representation, called the ``LinearOperator``. It can be used to do
