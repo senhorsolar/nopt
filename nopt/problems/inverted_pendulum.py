@@ -11,10 +11,11 @@ class InvertedPendulum(OptControlProblem):
       regulator design for nonlinear biological movement systems." 
       ICINCO (1). 2004.
     """
-    def __init__(self, N: int=10, h: float=1e-5):
+    def __init__(self, m: float=1, l: float=1):
         
         self.grav = 9.8
-        self.m = self.l = 1
+        self.m = m
+        self.l = l
         self.mu = 0.01
 
         self.Q = jnp.eye(2)
