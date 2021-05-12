@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 import jax.numpy as jnp
-from jax.lax import stop_gradient
+from jax.lax import dynamic_slice_in_dim, fori_loop, scan, stop_gradient
 from jax.scipy.sparse.linalg import cg, gmres
 from jax import grad, jit, jvp, vjp, random
 import matplotlib.pyplot as plt
@@ -109,18 +109,23 @@ class NlpProblem:
     def F(self, z):
         try:
             return self._F(z)
-        
         except:
             
             def _F(z):
-                xs, us = self._splitz(z)
                 
-                J = 0
-                for i in range(self.N):
-                    x = xs[i*self.statedim:(i+1)*self.statedim]
-                    u = us[i*self.inputdim:(i+1)*self.inputdim]
-                    J += self.ocp.L(x, u)
-                    
+                xs, us = self._splitz(z)
+
+                statedim = self.statedim
+                inputdim = self.inputdim
+                def body_fun(carry, i):
+                    x = dynamic_slice_in_dim(xs, i*statedim, statedim, 0)
+                    u = dynamic_slice_in_dim(us, i*inputdim, inputdim, 0)
+                    #x = xs[i*statedim:(i+1)*statedim]
+                    #u = us[i*inputdim:(i+1)*inputdim]
+                    return carry + self.ocp.L(x, u), 0
+
+                J, _ = scan(body_fun, 0, jnp.arange(self.N))
+                
                 xN = xs[-(self.statedim):]
                 J += self.ocp.phi(xN)
 
@@ -146,16 +151,24 @@ class NlpProblem:
             
             def _c(z):
                 xs, us = self._splitz(z)
+
+                statedim = self.statedim
+                inputdim = self.inputdim
                 
+                def body_fun(_, i):
+                    x = dynamic_slice_in_dim(xs, i*statedim, statedim, 0)
+                    xnext = dynamic_slice_in_dim(xs, (i+1)*statedim, statedim, 0)
+                    u = dynamic_slice_in_dim(us, i*inputdim, inputdim, 0)
+                    #x = xs[i*statedim:(i+1)*statedim]
+                    #xnext = xs[(i+1)*self.statedim:(i+2)*self.statedim]
+                    #u = us[i*self.inputdim:(i+1)*self.inputdim]
+
+                    val = xnext - x - self.collocation_fn(x, u, self.dt)
+                    return _, val
+
+                _, defects = scan(body_fun, None, jnp.arange(self.N))
                 _c = []
                 
-                for i in range(self.N):
-                    x = xs[i*self.statedim:(i+1)*self.statedim]
-                    xnext = xs[(i+1)*self.statedim:(i+2)*self.statedim]
-                    u = us[i*self.inputdim:(i+1)*self.inputdim]
-                    
-                    _c.append(xnext - x - self.collocation_fn(x, u, self.dt))
-
                 if 'x0' in self.bc:
                     x0 = xs[:self.statedim]
                     _c.append(x0 - self.bc['x0'])
@@ -169,7 +182,11 @@ class NlpProblem:
                     uN = us[-self.inputdim:]
                     _c.append(uN - self.bc['uN'])
 
-                return jnp.concatenate(_c)
+                _c = jnp.concatenate(_c)
+                
+                return jnp.concatenate(
+                    [defects.flatten(), _c]
+                )
 
             self._c = jit(_c)
             return self._c(z)
@@ -179,65 +196,89 @@ class NlpProblem:
         """
         Returns LinearOperator of Jacobian of c where matvec is jvp
         """
+        
+        try:
+            return self._G(z)
+        except:
 
-        # Jacobian-vector product
-        @jit
-        def matvec(v):
-            return jvp(self.c, (z,), (v,))[1]
+            def _G(z):
+                # Jacobian-vector product
+                @jit
+                def matvec(v):
+                    return jvp(self.c, (z,), (v,))[1]
 
-        # Vector-Jacobian product
-        @jit
-        def rmatvec(v):
-            _, vjp_fn = vjp(self.c, z)
-            return vjp_fn(v)[0]
+                # Vector-Jacobian product
+                @jit
+                def rmatvec(v):
+                    _, vjp_fn = vjp(self.c, z)
+                    return vjp_fn(v)[0]
 
-        shape = (self.nconstraints, self.nvars)
-        return LinearOperator(shape, matvec=matvec, rmatvec=rmatvec, dtype=jnp.float32)
-    
+                shape = (self.nconstraints, self.nvars)
+                return LinearOperator(shape, matvec=matvec, rmatvec=rmatvec, dtype=jnp.float32)
+            
+            self._G = _G
+            return self._G(z)
 
+        
     def H(self, z, lam):
 
-        # Gradient of Lagrangian w.r.t. z
-        @jit
-        def G_L(z):
-            return self.g(z) - self.G(z).T @ lam
+        try:
+            return self._H(z, lam)
+        except:
 
-        # Hessian-vector product
-        @jit
-        def matvec(v):
-            return grad(lambda x: jnp.vdot(G_L(x), v))(z)
+            def _H(z, lam):
+                # Gradient of Lagrangian w.r.t. z
+                @jit
+                def G_L(z):
+                    return self.g(z) - self.G(z).T @ lam
+            
+                # Hessian-vector product
+                @jit
+                def matvec(v):
+                    return grad(lambda x: jnp.vdot(G_L(x), v))(z)
 
-        @jit
-        def rmatvec(v):
-            return matvec(v).T
+                @jit
+                def rmatvec(v):
+                    return matvec(v).T
         
-        n = self.nvars
-        return LinearOperator((n,n), matvec=matvec, dtype=jnp.float32)
+                n = self.nvars
+                return LinearOperator((n,n), matvec=matvec, dtype=jnp.float32)
+
+            self._H = _H
+            return self._H(z, lam)
         
 
     def KKT(self, z, lam):
 
-        n, m = self.nvars, self.nconstraints
+        try:
+            return self._KKT(z, lam)
+        except:
+            
+            def _KKT(z, lam):
+                
+                n, m = self.nvars, self.nconstraints
 
-        G = self.G(z)
-        H = self.H(z, lam)
+                G = self.G(z)
+                H = self.H(z, lam)
 
-        @jit
-        def matvec(v):
+                @jit
+                def matvec(v):
 
-            v1 = v[:n]
-            v2 = v[n:]
+                    v1 = v[:n]
+                    v2 = v[n:]
+                    
+                    res1 = (H @ v1) + (G.T @ v2)
+                    res2 = G @ v1
 
-            res1 = (H @ v1) + (G.T @ v2)
-            res2 = G @ v1
+                    return jnp.concatenate([res1, res2])
 
-            return jnp.concatenate([res1, res2])
+                @jit
+                def rmatvec(v):
+                    return matvec(v).T
 
-        @jit
-        def rmatvec(v):
-            return matvec(v).T
-
-        return LinearOperator((n+m,n+m), matvec=matvec, rmatvec=rmatvec, dtype=jnp.float32)
+                return LinearOperator((n+m,n+m), matvec=matvec, rmatvec=rmatvec, dtype=jnp.float32)
+            self._KKT = _KKT
+            return self._KKT(z, lam)
 
 
     def plot(self, z):
@@ -312,7 +353,7 @@ def solve(problem: NlpProblem, x0=None, solver=gmres, precond_fn=None, eps=1e-4,
         lam = z[n:]
 
         # TODO - line search
-        x += p
+        x += 0.7*p
 
         if outer_callback:
             outer_callback(x, lam)
