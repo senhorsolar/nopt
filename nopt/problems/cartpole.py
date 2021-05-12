@@ -50,7 +50,36 @@ class CartPole(OptControlProblem):
         return 0
 
     def render(self, x, fig, artist=None):
-        #TODO
+
+        if artist is None:
+            ax = fig.add_subplot(111)
+
+            lim = 3 * self.l
+            ax.set_xlim([-lim, lim])
+            ax.set_ylim([-lim, lim])
+
+            self._lim = lim
+
+        x, _, theta, _ = x
+        
+        if 3*abs(x) > self._lim:
+            lim = 3*abs(x)
+            ax.set_xlim([-lim, lim])
+            ax.set_ylim([-lim, lim])
+            self._lim = lim
+        
+        joint_x, joint_y = [x, 0]
+        tip_x = joint_x + self.l * jnp.sin(theta)
+        tip_y = -self.l * jnp.cos(theta)
+        
+        xs = [joint_x, tip_x]
+        ys = [joint_y, tip_y]
+        
+        if artist:
+            artist.set_data(xs, ys)
+        else:
+            artist, = ax.plot(xs, ys)
+            
         return artist
 
     @property
