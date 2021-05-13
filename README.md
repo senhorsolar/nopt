@@ -3,7 +3,7 @@ Nonlinear optimal control via nonlinear programming (NLP). This library relies u
 
 ## Usage
 
-1. First create an optimal control problem by subclassing from the template given in [core.py](nopt/core.py). See [inverted_pendulum.py](nopt/problems/inverted_pendulum.py) for an example.
+1. First create an optimal control problem by subclassing from the template given in [core.py](nopt/core.py). See [cartpole.py](nopt/problems/cartpole.py) for an example.
 
 ``` python
 import jax.numpy as np
