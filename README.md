@@ -7,17 +7,17 @@ Nonlinear optimal control via nonlinear programming (NLP). This library relies u
 
 ``` python
 import jax.numpy as np
-from nopt.problems import InvertedPendulum
+from nopt.problems import CartPole
 
-ip = InvertedPendulum()
+ip = CartPole()
 ```
 
 2. Specify boundary conditions and number of grid points:
 
 ``` python
-bcs = {'x0': jnp.array([jnp.pi, 0.]),
-       'xN': jnp.array([0., 0.])
-N = 10
+bcs = {'x0': jnp.array([0., 0., 0., 0.]),
+       'xN': jnp.array([0., 0., jnp.pi, 0.])}
+N = 100
 ```
 
 3. Create a NLP problem:
@@ -43,4 +43,4 @@ anim = problem.plot(zstar)
 ## Example 
 See the [example notebook](example.ipynb).
 
-![](fig/inverted_pendulum.gif)
+![](fig/cartpole.gif)
