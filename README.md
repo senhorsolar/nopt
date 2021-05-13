@@ -9,7 +9,7 @@ Nonlinear optimal control via nonlinear programming (NLP). This library relies u
 import jax.numpy as np
 from nopt.problems import CartPole
 
-ip = CartPole()
+cartpole = CartPole()
 ```
 
 2. Specify boundary conditions and number of grid points:
@@ -24,7 +24,7 @@ N = 100
 ``` python
 from nopt import NlpProblem
 
-problem = NlpProblem(ip, boundary_conditions=bcs, N=N)
+problem = NlpProblem(cartpole, boundary_conditions=bcs, N=N)
 ```
 4. Find the optimized solution:
 
