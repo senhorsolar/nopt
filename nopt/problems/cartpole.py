@@ -12,15 +12,17 @@ class CartPole(OptControlProblem):
         mc (float): Mass of cart
         mp (float): Mass of pole
         l (float): Length of pole
+        r (float): Cost parameter
     """
 
-    def __init__(self, mc: float=2, mp: float=1, l: float=1):
+    def __init__(self, mc: float=2, mp: float=1, l: float=1, r: float=1e-5):
 
         self.grav = 9.8
         self.mc = mc
         self.mp = mp
         self.m = (mc + mp)
         self.l = l
+        self.r = r
 
     def f(self, x, u):
         """
@@ -44,7 +46,7 @@ class CartPole(OptControlProblem):
         return jnp.array([xdot, xddot, thetadot, thetaddot])
 
     def L(self, _, u):
-        return 0.5 * u.T @ u
+        return self.r * 0.5 * u.T @ u
 
     def phi(self, _):
         return 0
@@ -61,12 +63,6 @@ class CartPole(OptControlProblem):
             self._lim = lim
 
         x, _, theta, _ = x
-        
-        if 3*abs(x) > self._lim:
-            lim = 3*abs(x)
-            ax.set_xlim([-lim, lim])
-            ax.set_ylim([-lim, lim])
-            self._lim = lim
         
         joint_x, joint_y = [x, 0]
         tip_x = joint_x + self.l * jnp.sin(theta)

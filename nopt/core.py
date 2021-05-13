@@ -62,12 +62,13 @@ class NlpProblem:
     """
     Transcribes an optimal control problem into a nonlinear programming (NLP) problem
     """
-    def __init__(self, ocp: OptControlProblem, boundary_conditions: dict, N: int=20, collocation_fn=None):
+    def __init__(self, ocp: OptControlProblem, boundary_conditions: dict, N: int=20, T: float=1., collocation_fn=None):
 
         self.ocp = ocp
         self.bc = {key: jnp.asarray(bc) for key, bc in boundary_conditions.items()}
         self.N = N
-        self.dt = 1./N
+        self.dt = T/N
+        self.T = T
 
         if collocation_fn is None:
             def collocation_fn(x, u, h=self.dt):
@@ -299,7 +300,10 @@ class NlpProblem:
             self.artist = self.ocp.render(x, fig, self.artist)
             return self.artist,
 
-        anim = animation.FuncAnimation(fig, func, frames=xs, blit=True, interval=200)
+        anim = animation.FuncAnimation(
+                fig, func, frames=xs, blit=True,
+                interval=self.dt*1000
+        )
         plt.close(fig)
         
         return anim
